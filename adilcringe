@@ -1,0 +1,720 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Портал мероприятий — Олимпиады, Хакатоны, Стартапы</title>
+  <style>
+    /* --- Reset & base --- */
+    :root{--accent:#2563eb;--muted:#666}
+    *{box-sizing:border-box}
+    body{font-family:Inter,Segoe UI,Roboto,Arial;margin:0;background:#f5f7fb;color:#111}
+    header{background:linear-gradient(90deg,#ffffffcc, #f0f6ff);padding:18px 24px;border-bottom:1px solid #e6eefc;display:flex;gap:12px;align-items:center}
+    h1{font-size:18px;margin:0}
+    .container{max-width:1100px;margin:18px auto;padding:0 16px}
+
+    /* --- Controls --- */
+    .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    input[type=text],select{padding:8px 10px;border:1px solid #d6e3ff;border-radius:8px;min-width:160px}
+    button{background:var(--accent);color:white;border:none;padding:8px 12px;border-radius:8px;cursor:pointer}
+    button.ghost{background:transparent;color:var(--accent);border:1px solid #d6e3ff}
+
+    /* --- Layout --- */
+    .grid{display:grid;grid-template-columns:1fr 320px;gap:18px;margin-top:18px}
+    .panel{background:white;border-radius:12px;padding:14px;box-shadow:0 6px 18px rgba(30,50,100,0.06)}
+
+    /* --- Event list --- */
+    .list{display:flex;flex-direction:column;gap:12px}
+    .card{padding:12px;border-radius:10px;border:1px solid #eef6ff;background:linear-gradient(180deg,#fff,#fbfdff);display:flex;justify-content:space-between;gap:12px}
+    .card .meta{display:flex;gap:12px;align-items:center;flex-direction:column}
+    .tags{display:flex;gap:6px;flex-wrap:wrap}
+    .tag{font-size:12px;padding:4px 8px;border-radius:999px;border:1px solid #e6eefc;background:#f7fbff;color:#164eab}
+    .small{font-size:13px;color:var(--muted)}
+    .cta{display:flex;gap:8px;flex-wrap:wrap}
+
+    /* админка*/
+    .admin-login{margin-left:auto}
+    .admin-panel{display:flex;flex-direction:column;gap:10px}
+    label{font-size:13px}
+    textarea,input[type=date],input[type=datetime-local],input[type=number]{width:100%;padding:8px;border-radius:8px;border:1px solid #e6eefc}
+
+    /* правая коллона*/
+    .right{display:flex;flex-direction:column;gap:12px}
+    .recommendation{padding:10px;border-radius:8px;border:1px dashed #e6eefc}
+
+    /* подсказки и всплывающие уведомления */
+    .toast-wrap{position:fixed;right:18px;bottom:18px;display:flex;flex-direction:column;gap:8px;z-index:9999}
+    .toast{background:#111;color:#fff;padding:10px 12px;border-radius:8px;opacity:0.98}
+    [data-tooltip]{position:relative}
+    [data-tooltip]:hover::after{content:attr(data-tooltip);position:absolute;left:50%;transform:translateX(-50%);bottom:calc(100% + 8px);background:#111;color:#fff;padding:6px 8px;border-radius:6px;font-size:12px;white-space:nowrap}
+
+    /* detail modal */
+    #detailModal{display:none;position:fixed;inset:0;background:rgba(2,6,23,0.5);z-index:1000;align-items:center;justify-content:center;padding:20px}
+    #detailModal .panel{max-width:820px;width:100%;overflow:auto;max-height:80vh}
+
+    /* --- Responsive --- */
+    @media (max-width:880px){.grid{grid-template-columns:1fr}.admin-login{order:2}.right{order:3}}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Портал мероприятий — Олимпиады, Конкурсы, Хакатоны</h1>
+    <div style="margin-left:12px" class="small">Клиентская и админ части · Поиск · Рекомендации · Запись</div>
+    <div class="admin-login">
+      <button id="adminBtn" class="ghost">Вход админа</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="controls">
+      <input id="search" type="text" placeholder="Поиск по названию или описанию...">
+      <select id="filterSubject">
+        <option value="">Все предметы</option>
+      </select>
+      <select id="sortBy">
+        <option value="date">Дата (по возрастанию)</option>
+        <option value="deadline">Скорый дедлайн</option>
+        <option value="pop">Популярность</option>
+      </select>
+      <button id="btnClear">Сброс</button>
+      <button id="btnNewEvent">Добавить событие (админ)</button>
+    </section>
+
+    <div class="grid">
+      <div>
+        <div class="panel">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <strong id="countLabel">0</strong> мероприятий
+            </div>
+            <div class="small">Автоматизация: импорт CSV/JSON • подсказки</div>
+          </div>
+
+          <div id="list" class="list" style="margin-top:12px">
+            <!-- Список мероприятий -->
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:12px">
+          <h3 style="margin:0 0 8px 0">Поиск по дате</h3>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <input id="dateFrom" type="date"> <input id="dateTo" type="date">
+            <button id="btnFilterDate">Применить</button>
+          </div>
+        </div>
+      </div>
+
+      <aside class="right">
+        <div class="panel">
+          <h3 style="margin:0 0 8px 0">Рекомендации</h3>
+          <div>
+            <label>Выберите предметную область</label>
+            <select id="recSubject">
+              <option value="">(без выбора)</option>
+            </select>
+          </div>
+          <div id="recs" style="margin-top:10px"></div>
+        </div>
+
+        <div class="panel">
+          <h3 style="margin:0 0 8px 0">Мои записи</h3>
+          <div id="myRegs"></div>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <!-- Admin modal / forms -->
+  <div id="modal" style="display:none;position:fixed;inset:0;background:rgba(2,6,23,0.5);align-items:center;justify-content:center;padding:20px;z-index:999">
+    <div style="width:100%;max-width:820px">
+      <div class="panel admin-panel" style="position:relative">
+        <button id="closeModal" style="position:absolute;right:12px;top:12px;background:transparent;color:var(--muted);border:none">✕</button>
+        <h2 id="modalTitle">Панель администратора</h2>
+
+        <div id="adminBlock">
+          <label>Имя события</label>
+          <input id="e_title" type="text">
+          <label>Описание</label>
+          <textarea id="e_desc" rows="3"></textarea>
+          <label>Предметы / Теги (через запятую)</label>
+          <input id="e_tags" type="text" placeholder="математика, программирование, стартап">
+          <label>Подкатегория (например: региональная / международная / школьная)</label>
+          <input id="e_subcategory" type="text" placeholder="региональная">
+          <label>Этапы (каждый этап с новой строки)</label>
+          <textarea id="e_stages" rows="3" placeholder="1) Отборочный тур\n2) Региональный тур\n3) Финал"></textarea>
+          <label>Места проведения (каждый пункт с новой строки)</label>
+          <textarea id="e_locations" rows="2" placeholder="Онлайн / Алматы, Назарбаев Университет"></textarea>
+          <label>Возраст участников (минимум и максимум)</label>
+          <div style="display:flex;gap:8px">
+            <input id="e_ageMin" type="number" placeholder="мин" min="0" style="width:80px">
+            <input id="e_ageMax" type="number" placeholder="макс" min="0" style="width:80px">
+          </div>
+          <label>Количество человек в команде (мин — макс)</label>
+          <div style="display:flex;gap:8px">
+            <input id="e_teamMin" type="number" placeholder="мин" min="1" style="width:80px">
+            <input id="e_teamMax" type="number" placeholder="макс" min="1" style="width:80px">
+          </div>
+          <label>Сроки проведения (дата) и дедлайн регистрации</label>
+          <input id="e_date" type="date">
+          <input id="e_deadline" type="datetime-local">
+          <label>Финансовые вопросы (взносы, возмещение дорожных расходов и т.д.)</label>
+          <textarea id="e_finance" rows="2" placeholder="Стартовый взнос: 5000 KZT. Проживание за счёт организаторов."></textarea>
+          <label>Награды и перспективы</label>
+          <textarea id="e_awards" rows="2" placeholder="Призовой фонд, гранты, приглашение на стажировки"></textarea>
+          <label>Ссылка</label>
+          <input id="e_link" type="text">
+
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button id="saveEvent">Сохранить</button>
+            <button id="importCSV" class="ghost">Импорт CSV</button>
+            <input id="csvFile" type="file" accept="text/csv" style="display:none">
+            <button id="sampleGen" class="ghost">Сгенерировать образцы</button>
+            <button id="adminLogout" class="ghost">Выйти</button>
+          </div>
+
+          <div style="margin-top:8px">
+            <label>Импорт/Вставка JSON (массив объектов)</label>
+            <textarea id="jsonImport" rows="4" placeholder='[{"title":"...","date":"2026-05-01","deadline":"2026-04-30T23:59","tags":"математика","stages":"...","locations":"...","ageMin":14,"ageMax":18,"teamMin":1,"teamMax":3,"finance":"...","awards":"..."}]'></textarea>
+            <div style="display:flex;gap:8px;margin-top:6px"><button id="btnImportJson">Импортировать JSON</button></div>
+          </div>
+
+        </div>
+
+        <div style="margin-top:12px">
+          <h4>Список событий (админ)</h4>
+          <div id="adminEventList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail modal (показывает полную и подробную информацию об мероприятии) -->
+  <div id="detailModal">
+    <div class="panel">
+      <button id="closeDetail" style="position:absolute;right:24px;top:20px;background:transparent;border:none;font-size:20px;color:var(--muted)">✕</button>
+      <div id="detailContent"></div>
+      <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">
+        <button id="detailRegBtn">Записаться</button>
+        <a id="detailLink" href="#" target="_blank" rel="noopener" class="ghost" style="text-decoration:none;padding:8px 12px;border-radius:8px;border:1px solid #d6e3ff;color:var(--accent)">Официальная страница</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-wrap" id="toasts"></div>
+
+  <script>
+    //indexedDB 
+    const DB_NAME = 'events_portal_v1';
+    const STORE_EVENTS = 'events';
+    const STORE_REGS = 'registrations';
+
+    function openDB(){
+      return new Promise((resolve, reject)=>{
+        const r = indexedDB.open(DB_NAME, 1);
+        r.onupgradeneeded = e =>{
+          const db = e.target.result;
+          if(!db.objectStoreNames.contains(STORE_EVENTS)){
+            const s = db.createObjectStore(STORE_EVENTS, {keyPath:'id'});
+            s.createIndex('date','date',{unique:false});
+            s.createIndex('deadline','deadline',{unique:false});
+            s.createIndex('tags','tags',{unique:false,multiEntry:true});
+          }
+          if(!db.objectStoreNames.contains(STORE_REGS)){
+            db.createObjectStore(STORE_REGS,{keyPath:'rid',autoIncrement:true});
+          }
+        };
+        r.onsuccess = ()=>resolve(r.result);
+        r.onerror = ()=>reject(r.error);
+      });
+    }
+
+    async function withStore(storeName, mode, fn){
+      const db = await openDB();
+      return new Promise((res,rej)=>{
+        const tx = db.transaction(storeName,mode);
+        const store = tx.objectStore(storeName);
+        const result = fn(store);
+        tx.oncomplete = ()=>res(result);
+        tx.onerror = ()=>rej(tx.error);
+      });
+    }
+
+    async function addEventObj(ev){
+      ev.id = ev.id || crypto.randomUUID();
+      await withStore(STORE_EVENTS,'readwrite',s=>s.put(ev));
+      return ev.id;
+    }
+    async function getAllEvents(){
+      const db = await openDB();
+      return new Promise((res,rej)=>{
+        const tx = db.transaction(STORE_EVENTS,'readonly');
+        const s = tx.objectStore(STORE_EVENTS);
+        const all = s.getAll();
+        all.onsuccess = ()=>res(all.result || []);
+        all.onerror = ()=>rej(all.error);
+      });
+    }
+    async function deleteEvent(id){
+      await withStore(STORE_EVENTS,'readwrite',s=>s.delete(id));
+    }
+    async function getEvent(id){
+      const db = await openDB();
+      return new Promise((res,rej)=>{
+        const tx = db.transaction(STORE_EVENTS,'readonly');
+        const r = tx.objectStore(STORE_EVENTS).get(id);
+        r.onsuccess = ()=>res(r.result);
+        r.onerror = ()=>rej(r.error);
+      });
+    }
+    async function addRegistration(reg){
+      reg.created = new Date().toISOString();
+      await withStore(STORE_REGS,'readwrite',s=>s.add(reg));
+    }
+    async function getRegsForEvent(eid){
+      const db = await openDB();
+      return new Promise((res,rej)=>{
+        const tx = db.transaction(STORE_REGS,'readonly');
+        const s = tx.objectStore(STORE_REGS);
+        const items = [];
+        s.openCursor().onsuccess = function(e){
+          const c = e.target.result;
+          if(c){ if(c.value.eventId === eid) items.push(c.value); c.continue(); } else res(items);
+        }
+      });
+    }
+
+    //помощники ui
+    function $q(id){return document.getElementById(id)}
+    function toast(msg, timeout=5000){
+      const wrap = $q('toasts');
+      const t = document.createElement('div'); t.className='toast'; t.textContent = msg; wrap.appendChild(t);
+      setTimeout(()=>{t.remove()}, timeout);
+    }
+
+    //если данные сида пустые
+    async function seedIfEmpty(){
+      const all = await getAllEvents();
+      if(all.length) return;
+      const sample = [
+        {
+          title:'Республиканская олимпиада по математике',
+          desc:'Участие школьников 9-11 классов. Задачи по алгебре, геометрии и комбинаторике.',
+          tags:['математика'],
+          subcategory:'школьная/республиканская',
+          stages:['Отборочный (школьный)','Региональный','Финал'],
+          locations:['Онлайн','Нур-Султан, Конференц-зал НИШ'],
+          ageMin:14, ageMax:18,
+          teamMin:1, teamMax:1,
+          date:'2026-05-15',
+          deadline:'2026-05-05T23:59',
+          finance:'Участие бесплатное; компенсация проезда для финалистов по заявлению.',
+          awards:'Дипломы, медали, приглашение на подготовительные курсы; возможны стипендии.',
+          link:'https://example.com/math'
+        },
+        {
+          title:'Хакатон AI Junior',
+          desc:'Хакатон для начинающих в области ИИ. Разработка проекта за 48 часов.',
+          tags:['программирование','искусственный интеллект'],
+          subcategory:'студенческая/обучающая',
+          stages:['Регистрация','Спринт 48ч','Презентации и судейство'],
+          locations:['Онлайн'],
+          ageMin:15, ageMax:21,
+          teamMin:1, teamMax:4,
+          date:'2026-06-10',
+          deadline:'2026-06-01T23:59',
+          finance:'Стартовый взнос: 2000 KZT; призовой фонд покрывает расходы команд-победителей.',
+          awards:'Призы, наставничество от индустрии, приглашения на стажировки.',
+          link:'https://example.com/ai'
+        },
+        {
+          title:'Startup Weekend — Алматы',
+          desc:'Соревнования стартапов за 48 часов: от идеи до MVP и питчинга инвесторам.',
+          tags:['стартап','предпринимательство'],
+          subcategory:'предпринимательская/интенсив',
+          stages:['Формирование команд','Разработка','Питчинг перед жюри'],
+          locations:['Алматы, TechHub'],
+          ageMin:16, ageMax:35,
+          teamMin:2, teamMax:6,
+          date:'2026-04-20',
+          deadline:'2026-04-10T23:59',
+          finance:'Взнос 10000 KZT; частичный фандрайзинг для победителей.',
+          awards:'Пожизненные менторские сессии, призовой фонд, доступ к акселератору.',
+          link:'https://example.com/startup'
+        },
+      ];
+      for(const s of sample) await addEventObj(s);
+    }
+
+    //рендерим список
+    async function refreshList(){
+      const raw = await getAllEvents();
+      let events = raw.slice();
+      const q = $q('search').value.trim().toLowerCase();
+      const subj = $q('filterSubject').value;
+      // поиск
+      if(q){
+        events = events.filter(e=>
+          (e.title||'').toLowerCase().includes(q) ||
+          (e.desc||'').toLowerCase().includes(q) ||
+          (e.tags||[]).join(' ').toLowerCase().includes(q) ||
+          (e.subcategory||'').toLowerCase().includes(q) ||
+          (e.stages||[]).join(' ').toLowerCase().includes(q) ||
+          (e.locations||[]).join(' ').toLowerCase().includes(q)
+        );
+      }
+      if(subj){ events = events.filter(e=> (e.tags||[]).includes(subj) || (e.subcategory||'')===subj ); }
+      // фильтр по дат
+      const df = $q('dateFrom').value, dt = $q('dateTo').value;
+      if(df){ events = events.filter(e=> e.date >= df); }
+      if(dt){ events = events.filter(e=> e.date <= dt); }
+      // сорт
+      const sortBy = $q('sortBy').value;
+      if(sortBy==='date') events.sort((a,b)=> (a.date||'') > (b.date||'')?1:-1);
+      if(sortBy==='deadline') events.sort((a,b)=> (a.deadline||'') > (b.deadline||'')?1:-1);
+      if(sortBy==='pop') events.sort((a,b)=> (getRegsCountSync(b.id) || 0) - (getRegsCountSync(a.id) || 0));
+
+      $q('list').innerHTML='';
+      $q('countLabel').textContent = events.length;
+      for(const e of events){
+        const card = document.createElement('div'); card.className='card';
+        const left = document.createElement('div'); left.className='meta';
+        const md = document.createElement('div');
+        // краткая сводка: название, дата, дедлайн, подкатегория
+        md.innerHTML = `<div style="font-weight:600">${escapeHtml(e.title||'Без названия')}</div>
+                        <div class="small">${formatDate(e.date)} • дедлайн: ${formatDateTime(e.deadline)} • ${escapeHtml(e.subcategory||'')}</div>
+                        <div class="small">${escapeHtml(e.desc||'')}</div>`;
+        left.appendChild(md);
+
+        // дополнительные краткие метрики (возраст, команда, награды кратко)
+        const extras = document.createElement('div');
+        extras.className='small';
+        const ageText = (e.ageMin || e.ageMax) ? `Возраст: ${e.ageMin||'-'}–${e.ageMax||'-'}` : '';
+        const teamText = (e.teamMin || e.teamMax) ? `Команда: ${e.teamMin||'-'}–${e.teamMax||'-'}` : '';
+        const awardText = e.awards ? (`Награды: ${e.awards.split('.').slice(0,1).join('.')}`) : '';
+        extras.textContent = [ageText, teamText, awardText].filter(Boolean).join(' • ');
+        left.appendChild(extras);
+
+        const tags = document.createElement('div'); tags.className='tags';
+        (e.tags||[]).slice(0,4).forEach(t=>{const sp=document.createElement('span');sp.className='tag';sp.textContent=t;tags.appendChild(sp)});
+        left.appendChild(tags);
+
+        const right = document.createElement('div'); right.style.textAlign='right';
+        const regCount = getRegsCountSync(e.id) || 0;
+        const btnReg = document.createElement('button'); btnReg.textContent='Записаться';
+        btnReg.onclick = ()=>openRegForm(e);
+        const btnMore = document.createElement('button'); btnMore.className='ghost'; btnMore.textContent='Подробнее'; btnMore.onclick = ()=>openDetail(e.id);
+        right.appendChild(document.createElement('div')).style.height='6px';
+        right.appendChild(document.createElement('div'));
+        const cBlock = document.createElement('div'); cBlock.className='cta';
+        cBlock.appendChild(btnReg); cBlock.appendChild(btnMore);
+        const pop = document.createElement('div'); pop.className='small'; pop.textContent = `Участников: ${regCount}`;
+        right.appendChild(pop); right.appendChild(cBlock);
+
+        card.appendChild(left); card.appendChild(right);
+        $q('list').appendChild(card);
+      }
+      await refreshAdminList();
+      refreshSubjects(raw);
+      refreshMyRegs();
+      calcDeadlineHints(raw);
+    }
+
+    function escapeHtml(s){ return (s+'').replace(/[&<>]/g,ch=>({ '&':'&amp;','<':'&lt;','>':'&gt;' }[ch])); }
+    function formatDate(d){ if(!d) return '-'; return (new Date(d)).toLocaleDateString(); }
+    function formatDateTime(d){ if(!d) return '-'; return (new Date(d)).toLocaleString(); }
+
+    //помощники для маленького интерфейса фор ексампл для подсчета кэша
+    let regsCache = {}; // eventId -> count
+    async function rebuildRegsCache(){
+      regsCache = {};
+      const db = await openDB();
+      return new Promise((res)=>{
+        const tx = db.transaction(STORE_REGS,'readonly');
+        tx.objectStore(STORE_REGS).openCursor().onsuccess = e=>{
+          const c = e.target.result; if(c){ regsCache[c.value.eventId] = (regsCache[c.value.eventId]||0) + 1; c.continue(); } else res();
+        }
+      });
+    }
+    function getRegsCountSync(eid){ return regsCache[eid] || 0; }
+
+    //функции админа
+    let editingId = null;
+    document.getElementById('adminBtn').addEventListener('click', ()=>promptAdminLogin());
+    document.getElementById('btnNewEvent').addEventListener('click', ()=>{ promptAdminLogin(()=>openModal()); });
+
+    function promptAdminLogin(cb){
+      const pass = prompt('Введите пароль администратора (по умолчанию: admin)');
+      if(pass === null) return; // cancel
+      if(pass === 'admin'){ localStorage.setItem('isAdmin','1'); toast('Вход как админ успешен'); if(cb) cb(); else openModal(); }
+      else alert('Неверный пароль');
+    }
+
+    function openModal(){ $q('modal').style.display='flex'; }
+    function closeModal(){ $q('modal').style.display='none'; editingId = null; fillAdminFormEmpty(); }
+    $q('closeModal').addEventListener('click', closeModal);
+
+    function fillAdminFormEmpty(){
+      $q('modalTitle').textContent='Панель администратора';
+      $q('e_title').value=''; $q('e_desc').value=''; $q('e_tags').value=''; $q('e_subcategory').value='';
+      $q('e_stages').value=''; $q('e_locations').value=''; $q('e_ageMin').value=''; $q('e_ageMax').value='';
+      $q('e_teamMin').value=''; $q('e_teamMax').value=''; $q('e_date').value=''; $q('e_deadline').value=''; $q('e_finance').value=''; $q('e_awards').value=''; $q('e_link').value='';
+    }
+
+    $q('saveEvent').addEventListener('click', async ()=>{
+      if(!localStorage.getItem('isAdmin')) return alert('Только админ');
+      const obj = {
+        title:$q('e_title').value.trim(),
+        desc:$q('e_desc').value.trim(),
+        tags:($q('e_tags').value||'').split(',').map(s=>s.trim()).filter(Boolean),
+        subcategory:($q('e_subcategory').value||'').trim(),
+        stages:($q('e_stages').value||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean),
+        locations:($q('e_locations').value||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean),
+        ageMin: $q('e_ageMin').value ? Number($q('e_ageMin').value) : undefined,
+        ageMax: $q('e_ageMax').value ? Number($q('e_ageMax').value) : undefined,
+        teamMin: $q('e_teamMin').value ? Number($q('e_teamMin').value) : undefined,
+        teamMax: $q('e_teamMax').value ? Number($q('e_teamMax').value) : undefined,
+        date:$q('e_date').value,
+        deadline:$q('e_deadline').value,
+        finance:$q('e_finance').value.trim(),
+        awards:$q('e_awards').value.trim(),
+        link:$q('e_link').value.trim()
+      };
+      if(!obj.title) return alert('Введите название');
+      if(editingId){ obj.id = editingId; await addEventObj(obj); toast('Событие обновлено'); }
+      else{ await addEventObj(obj); toast('Событие добавлено'); }
+      await rebuildRegsCache();
+      await refreshList();
+      closeModal();
+    });
+
+    $q('adminLogout').addEventListener('click', ()=>{ localStorage.removeItem('isAdmin'); toast('Вы вышли как админ'); closeModal(); });
+
+    async function refreshAdminList(){
+      const all = await getAllEvents();
+      const wrap = $q('adminEventList'); wrap.innerHTML='';
+      all.forEach(e=>{
+        const el = document.createElement('div'); el.style.display='flex'; el.style.justifyContent='space-between'; el.style.padding='6px 0';
+        el.innerHTML = `<div><strong>${escapeHtml(e.title)}</strong> <div class="small">${(e.tags||[]).join(', ')} • ${escapeHtml(e.subcategory||'')}</div></div>`;
+        const controls = document.createElement('div'); controls.style.display='flex'; controls.style.gap='6px';
+        const edit = document.createElement('button'); edit.className='ghost'; edit.textContent='Изменить'; edit.onclick = ()=>{ editingId = e.id; openModal(); fillFormForEdit(e); };
+        const del = document.createElement('button'); del.className='ghost'; del.textContent='Удалить'; del.onclick = async ()=>{ if(confirm('Удалить?')){ await deleteEvent(e.id); toast('Удалено'); await rebuildRegsCache(); await refreshList(); } };
+        controls.appendChild(edit); controls.appendChild(del);
+        el.appendChild(controls); wrap.appendChild(el);
+      });
+    }
+
+    function fillFormForEdit(e){
+      $q('modalTitle').textContent='Редактирование события';
+      $q('e_title').value = e.title || '';
+      $q('e_desc').value = e.desc||'';
+      $q('e_tags').value = (e.tags||[]).join(', ');
+      $q('e_subcategory').value = e.subcategory || '';
+      $q('e_stages').value = (e.stages||[]).join('\n');
+      $q('e_locations').value = (e.locations||[]).join('\n');
+      $q('e_ageMin').value = e.ageMin || '';
+      $q('e_ageMax').value = e.ageMax || '';
+      $q('e_teamMin').value = e.teamMin || '';
+      $q('e_teamMax').value = e.teamMax || '';
+      $q('e_date').value = e.date||'';
+      $q('e_deadline').value = e.deadline||'';
+      $q('e_finance').value = e.finance||'';
+      $q('e_awards').value = e.awards||'';
+      $q('e_link').value = e.link||'';
+    }
+
+    //импорт сисиви
+    $q('importCSV').addEventListener('click', ()=>$q('csvFile').click());
+    $q('csvFile').addEventListener('change', async function(){
+      const f = this.files[0]; if(!f) return; const txt = await f.text(); importFromCSV(txt);
+    });
+    function importFromCSV(txt){
+      const lines = txt.split(/\r?\n/).filter(Boolean);
+      const headers = lines.shift().split(',').map(h=>h.trim());
+      const arr = lines.map(l=>{
+        const cols = l.split(','); const obj={}; headers.forEach((h,i)=>obj[h]=cols[i]); return obj;
+      });
+      arr.forEach(async row=>{
+        // карта полей: допускаются названия stages (с разделителем ';' или '\n'), locations, ageMin, ageMax, teamMin, teamMax, finance, awards, subcategory
+        const obj = {
+          title:row.title||row.name,
+          desc:row.desc||row.description,
+          tags:(row.tags||'').toString().replace(/;/g,',').split(',').map(s=>s.trim()).filter(Boolean),
+          subcategory:row.subcategory||'',
+          stages: (row.stages||row.stage||'').toString().split(/;|\\n/).map(s=>s.trim()).filter(Boolean),
+          locations:(row.locations||row.location||'').toString().split(/;|\\n/).map(s=>s.trim()).filter(Boolean),
+          ageMin: row.ageMin? Number(row.ageMin): undefined,
+          ageMax: row.ageMax? Number(row.ageMax): undefined,
+          teamMin: row.teamMin? Number(row.teamMin): undefined,
+          teamMax: row.teamMax? Number(row.teamMax): undefined,
+          date:row.date,
+          deadline:row.deadline,
+          finance:row.finance||'',
+          awards:row.awards||'',
+          link:row.link
+        };
+        await addEventObj(obj);
+      });
+      toast('CSV импортирован (проверьте админ-панель)');
+      rebuildRegsCache().then(refreshList);
+    }
+
+    $q('btnImportJson').addEventListener('click', ()=>{
+      try{
+        const arr = JSON.parse($q('jsonImport').value);
+        if(!Array.isArray(arr)) throw 0;
+        arr.forEach(async it=>{
+          const o = {
+            title:it.title||it.name,
+            desc:it.desc||it.description,
+            tags:(it.tags||'').toString().split(',').map(s=>s.trim()).filter(Boolean),
+            subcategory: it.subcategory||'',
+            stages: (it.stages || '').toString().split(/;|\\n/).map(s=>s.trim()).filter(Boolean),
+            locations: (it.locations || '').toString().split(/;|\\n/).map(s=>s.trim()).filter(Boolean),
+            ageMin: it.ageMin? Number(it.ageMin): undefined,
+            ageMax: it.ageMax? Number(it.ageMax): undefined,
+            teamMin: it.teamMin? Number(it.teamMin): undefined,
+            teamMax: it.teamMax? Number(it.teamMax): undefined,
+            date:it.date,
+            deadline:it.deadline,
+            finance:it.finance||'',
+            awards:it.awards||'',
+            link:it.link
+          };
+          await addEventObj(o);
+        });
+        toast('JSON импортирован');
+        rebuildRegsCache().then(refreshList);
+      }catch(e){ alert('Ошибка JSON'); }
+    });
+
+    $q('sampleGen').addEventListener('click', async ()=>{ if(!confirm('Добавить 5 тестовых событий?')) return; for(let i=0;i<5;i++){ await addEventObj({title:`Тестовое событие ${i+1}`,desc:'Сгенерировано',tags:['тест','обучение'],subcategory:'тест',stages:['Тестовый этап 1','Тестовый этап 2'],locations:['Онлайн'],ageMin:12,ageMax:20,teamMin:1,teamMax:4,date:`2026-0${(i%9)+1}-1${i}`,deadline:`2026-0${(i%9)+1}-0${(i+1)}T23:59`,finance:'Бесплатно',awards:'Диплом',link:''}); } toast('Сгенерированы тестовые события'); rebuildRegsCache().then(refreshList); });
+
+    //рега пользователей
+    function openRegForm(eventObj){
+      const name = prompt('Ваше имя'); if(!name) return;
+      const email = prompt('Email для связи'); if(!email) return;
+      // сохраняем контакт и eventId
+      addRegistration({eventId:eventObj.id,name, email}).then(()=>{ toast('Вы успешно записаны'); rebuildRegsCache().then(refreshList); });
+    }
+
+    //подробности: теперь показывает детальную модалку с полными полями
+    async function openDetail(id){
+      const e = await getEvent(id);
+      if(!e) return alert('Не найдено');
+
+      const content = [];
+      content.push(`<h2>${escapeHtml(e.title)}</h2>`);
+      content.push(`<div class="small">${escapeHtml(e.subcategory||'')}</div>`);
+      content.push(`<p>${escapeHtml(e.desc||'')}</p>`);
+      content.push(`<div><strong>Дата мероприятия:</strong> ${formatDate(e.date)} • <strong>Дедлайн регистрации:</strong> ${formatDateTime(e.deadline)}</div>`);
+
+      if(e.stages && e.stages.length){
+        content.push('<div style="margin-top:8px"><strong>Этапы:</strong><ol>');
+        e.stages.forEach(s=> content.push(`<li>${escapeHtml(s)}</li>`));
+        content.push('</ol></div>');
+      }
+      if(e.locations && e.locations.length){
+        content.push('<div style="margin-top:8px"><strong>Места проведения:</strong><ul>');
+        e.locations.forEach(l=> content.push(`<li>${escapeHtml(l)}</li>`));
+        content.push('</ul></div>');
+      }
+
+      const age = (e.ageMin || e.ageMax) ? `<strong>Возраст участников:</strong> ${e.ageMin||'-'} — ${e.ageMax||'-'}` : '';
+      const team = (e.teamMin || e.teamMax) ? `<strong>Команда:</strong> ${e.teamMin||'-'} — ${e.teamMax||'-'}` : '';
+      if(age || team) content.push(`<div style="margin-top:8px">${age} ${age && team ? ' • ':''} ${team}</div>`);
+
+      if(e.finance) content.push(`<div style="margin-top:8px"><strong>Финансовые вопросы:</strong><div class="small">${escapeHtml(e.finance)}</div></div>`);
+      if(e.awards) content.push(`<div style="margin-top:8px"><strong>Награды и перспективы:</strong><div class="small">${escapeHtml(e.awards)}</div></div>`);
+
+      if(e.tags && e.tags.length) content.push(`<div style="margin-top:8px" class="small"><strong>Теги:</strong> ${escapeHtml((e.tags||[]).join(', '))}</div>`);
+
+      $q('detailContent').innerHTML = content.join('');
+      $q('detailLink').href = e.link || '#';
+      $q('detailRegBtn').onclick = ()=>{ closeDetail(); openRegForm(e); };
+      $q('detailModal').style.display = 'flex';
+      // прокрутка наверх
+      $q('detailModal').scrollTop = 0;
+    }
+
+    function closeDetail(){ $q('detailModal').style.display = 'none'; }
+    $q('closeDetail').addEventListener('click', closeDetail);
+
+    //предметные олимпиады и реки 
+    function refreshSubjects(events){
+      const set = new Set();
+      events.forEach(e=>{
+        (e.tags||[]).forEach(t=>set.add(t));
+        if(e.subcategory) set.add(e.subcategory);
+      });
+      const arr = Array.from(set).sort();
+      const fs = $q('filterSubject'); const rs = $q('recSubject'); fs.innerHTML='<option value="">Все предметы</option>'; rs.innerHTML='<option value="">(без выбора)</option>';
+      arr.forEach(a=>{ const op = document.createElement('option'); op.value=a; op.textContent=a; fs.appendChild(op); const op2 = op.cloneNode(true); rs.appendChild(op2); });
+    }
+
+    $q('recSubject').addEventListener('change', async ()=>{ const s = $q('recSubject').value; const all = await getAllEvents(); const recs = recommend(all,s); renderRecs(recs); });
+
+    function recommend(events, subject){
+      // простая система рекомендаций: если выбрана предметная область — отобрать по тегам или подкатегории; иначе ранжировать по ближайшему дедлайну и популярности
+      let arr = events.slice();
+      if(subject){ arr = arr.filter(e=> (e.tags||[]).includes(subject) || (e.subcategory||'')===subject); }
+      arr.forEach(e=>{ const days = daysUntil(e.deadline); e._score = (subject?10:0) + (e.tags? e.tags.length:0) - (days===null?0:days/30) + (getRegsCountSync(e.id)||0); });
+      arr.sort((a,b)=> (b._score||0) - (a._score||0));
+      return arr.slice(0,5);
+    }
+    function renderRecs(list){ const w = $q('recs'); w.innerHTML=''; if(!list.length){ w.textContent='Нет рекомендаций'; return; } list.forEach(e=>{ const d = document.createElement('div'); d.className='recommendation'; d.innerHTML = `<strong>${escapeHtml(e.title)}</strong><div class="small">${escapeHtml((e.tags||[]).join(', '))} • ${escapeHtml(e.subcategory||'')} • дедлайн: ${formatDateTime(e.deadline)}</div><div style="margin-top:6px"><button onclick="openDetail('${e.id}')">Подробнее</button> <button onclick="openRegForm(${JSON.stringify(e).replaceAll("'","\'")})" class="ghost">Записаться</button></div>`; w.appendChild(d); }); }
+
+    //Подсказки по дедлайнам
+    function daysUntil(iso){ if(!iso) return null; const d = new Date(iso); const now = new Date(); const diff = (d - now)/(1000*3600*24); return Math.floor(diff); }
+    function calcDeadlineHints(events){
+      events.forEach(e=>{
+        const days = daysUntil(e.deadline);
+        if(days !== null && days <=7 && days >=0){ toast(`Внимание: дедлайн для "${e.title}" через ${days} дн.`); }
+      });
+      // попросим разрешение на нативные уведомления (одноразово)
+      if(Notification && Notification.permission === 'default'){
+        Notification.requestPermission().then(p=>{ if(p==='granted'){ /* nothing */ } });
+      }
+      // отправка нотификаций для ближайшего
+      const nearest = events.filter(e=>daysUntil(e.deadline) !== null && daysUntil(e.deadline) <=7 && daysUntil(e.deadline) >=0).sort((a,b)=>daysUntil(a.deadline)-daysUntil(b.deadline))[0];
+      if(nearest && Notification && Notification.permission === 'granted'){
+        new Notification('Скорый дедлайн', {body:`${nearest.title} — дедлайн ${formatDateTime(nearest.deadline)}`});
+      }
+    }
+
+    // записи
+    async function refreshMyRegs(){
+      const wrap = $q('myRegs'); wrap.innerHTML='';
+      const db = await openDB(); const arr=[];
+      await new Promise(res=>{
+        db.transaction(STORE_REGS,'readonly').objectStore(STORE_REGS).openCursor().onsuccess = e=>{
+          const c=e.target.result; if(c){ arr.push(c.value); c.continue(); } else res(); }
+      });
+      if(!arr.length) { wrap.textContent='У вас нет записей'; return; }
+      for(const r of arr){
+        const ev = await getEvent(r.eventId);
+        const el = document.createElement('div'); el.style.padding='6px 0';
+        el.innerHTML = `<div><strong>${escapeHtml(ev?.title||'—')}</strong> <div class="small">${r.name} • ${r.email}</div></div>`;
+        wrap.appendChild(el);
+      }
+    }
+
+    // маленькие утилитики
+    window.openDetail = openDetail; window.openRegForm = openRegForm; // для inline handlers
+
+    // пересобрать кэш при загрузке, при необходимости врубить
+    (async ()=>{
+      await seedIfEmpty();
+      await rebuildRegsCache();
+      await refreshList();
+    })();
+
+    // найти хандлерочки
+    $q('search').addEventListener('input', ()=>refreshList());
+    $q('filterSubject').addEventListener('change', ()=>refreshList());
+    $q('sortBy').addEventListener('change', ()=>refreshList());
+    $q('btnFilterDate').addEventListener('click', ()=>refreshList());
+    $q('btnClear').addEventListener('click', ()=>{ $q('search').value=''; $q('filterSubject').value=''; $q('dateFrom').value=''; $q('dateTo').value=''; refreshList(); });
+
+  </script>
+</body>
+</html>
