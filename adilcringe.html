@@ -84,7 +84,7 @@
     :root{  
         --accent:#65c466;     /* салатово-зелёный */
         --muted:#666;
-        --header-line-speed: 0.01s;
+        --header-line-speed: 0.0000001s;
     }
     *{box-sizing:border-box}
     body{font-family:Inter,Segoe UI,Roboto,Arial;margin:0;background:#f5f7fb;color:#111}
@@ -297,6 +297,34 @@ textarea:focus{
   transform: translateY(-1px);
   box-shadow: 0 8px 22px rgba(16,24,40,0.08);
 }
+/* --- tag hover / active --- */
+.tag{
+  cursor: pointer;
+  transition: filter .14s ease, transform .12s ease, background-color .15s ease, color .15s ease, box-shadow .15s ease;
+}
+.tag:hover{
+  filter: brightness(0.88);
+  transform: translateY(-1px);
+}
+.tag.active{
+  background: var(--accent);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 6px 18px rgba(16,24,40,0.06);
+}
+
+/* небольшой отступ для тегов в рекомендациях */
+.rec-tag{ margin-right:6px; margin-top:6px; display:inline-block; }
+
+.event-tag{
+  transition: filter .15s ease, transform .1s ease;
+  cursor: pointer;
+}
+
+.event-tag:hover{
+  filter: brightness(0.85);
+  transform: translateY(-1px);
+}
   </style>
 </head>
 <body>
@@ -333,6 +361,7 @@ textarea:focus{
       <select id="filterSubject">
         <option value="">Все предметы</option>
       </select>
+      
       <select id="sortBy">
         <option value="date">Дата (по возрастанию)</option>
         <option value="deadline">Скорый дедлайн</option>
@@ -657,7 +686,22 @@ textarea:focus{
         left.appendChild(extras);
 
         const tags = document.createElement('div'); tags.className='tags';
-        (e.tags||[]).slice(0,4).forEach(t=>{const sp=document.createElement('span');sp.className='tag';sp.textContent=t;tags.appendChild(sp)});
+        // теги карточки — кликабельные
+(e.tags||[]).slice(0,4).forEach(t=>{
+  const sp = document.createElement('span');
+  sp.className = 'tag';
+  sp.textContent = t;
+  sp.title = `показать все мероприятия с тегом "${t}"`;
+  sp.addEventListener('click', ()=>{
+    // установить фильтр по тегу и обновить список (как при выборе в селекте)
+    $q('filterSubject').value = t;
+    refreshList();
+    // плавно проскроллим к списку (необязательно)
+    const listTop = $q('list')?.getBoundingClientRect()?.top + window.scrollY - 80;
+    if(listTop) window.scrollTo({top: listTop, behavior: 'smooth'});
+  });
+  tags.appendChild(sp);
+});
         left.appendChild(tags);
 
         const right = document.createElement('div'); right.style.textAlign='right';
@@ -679,6 +723,7 @@ textarea:focus{
       refreshSubjects(raw);
       refreshMyRegs();
       calcDeadlineHints(raw);
+      updateTagActiveStates();
     }
 
     function escapeHtml(s){ return (s+'').replace(/[&<>]/g,ch=>({ '&':'&amp;','<':'&lt;','>':'&gt;' }[ch])); }
@@ -977,6 +1022,13 @@ async function importFromCSV(txt){
 
     $q('recSubject').addEventListener('change', async ()=>{ const s = $q('recSubject').value; const all = await getAllEvents(); const recs = recommend(all,s); renderRecs(recs); });
 
+function updateTagActiveStates(){
+  const cur = $q('filterSubject').value || '';
+  document.querySelectorAll('.tag').forEach(el=>{
+    if(cur && el.textContent === cur) el.classList.add('active');
+    else el.classList.remove('active');
+  });
+}
     function recommend(events, subject){
       // простая система рекомендаций: если выбрана предметная область — отобрать по тегам или подкатегории; иначе ранжировать по ближайшему дедлайну и популярности
       let arr = events.slice();
@@ -985,7 +1037,48 @@ async function importFromCSV(txt){
       arr.sort((a,b)=> (b._score||0) - (a._score||0));
       return arr.slice(0,5);
     }
-    function renderRecs(list){ const w = $q('recs'); w.innerHTML=''; if(!list.length){ w.textContent='Нет рекомендаций'; return; } list.forEach(e=>{ const d = document.createElement('div'); d.className='recommendation'; d.innerHTML = `<strong>${escapeHtml(e.title)}</strong><div class="small">${escapeHtml((e.tags||[]).join(', '))} • ${escapeHtml(e.subcategory||'')} • дедлайн: ${formatDateTime(e.deadline)}</div><div style="margin-top:6px"><button onclick="openDetail('${e.id}')">Подробнее</button> <button onclick="openRegForm(${JSON.stringify(e).replaceAll("'","\'")})" class="ghost">Записаться</button></div>`; w.appendChild(d); }); }
+    function renderRecs(list){
+  const w = $q('recs'); w.innerHTML=''; 
+  if(!list.length){ w.textContent='Нет рекомендаций'; return; }
+
+  list.forEach(e=>{
+    const d = document.createElement('div');
+    d.className = 'recommendation';
+
+    const tTitle = document.createElement('strong');
+    tTitle.innerHTML = escapeHtml(e.title);
+    d.appendChild(tTitle);
+
+    const meta = document.createElement('div');
+    meta.className = 'small';
+    meta.innerHTML = `${escapeHtml((e.tags||[]).join(', '))} • ${escapeHtml(e.subcategory||'')} • дедлайн: ${formatDateTime(e.deadline)}`;
+    d.appendChild(meta);
+
+    // теги кликабельные
+    const tagWrap = document.createElement('div');
+    (e.tags||[]).slice(0,4).forEach(t=>{
+      const sp = document.createElement('span');
+      sp.className = 'tag rec-tag';
+      sp.textContent = t;
+      sp.title = `показать все мероприятия с тегом "${t}"`;
+      sp.addEventListener('click', ()=>{ $q('filterSubject').value = t; refreshList(); });
+      tagWrap.appendChild(sp);
+    });
+    d.appendChild(tagWrap);
+
+    // кнопки
+    const btns = document.createElement('div');
+    btns.style.marginTop = '6px';
+    const btnDet = document.createElement('button'); btnDet.textContent = 'Подробнее'; btnDet.onclick = ()=>openDetail(e.id);
+    const btnReg = document.createElement('button'); btnReg.className='ghost'; btnReg.textContent='Записаться'; btnReg.onclick = ()=>openRegForm(e);
+    btns.appendChild(btnDet); btns.appendChild(btnReg);
+    d.appendChild(btns);
+
+    w.appendChild(d);
+  });
+
+  updateTagActiveStates();
+}
 
     //Подсказки по дедлайнам
     function daysUntil(iso){ if(!iso) return null; const d = new Date(iso); const now = new Date(); const diff = (d - now)/(1000*3600*24); return Math.floor(diff); }
@@ -1049,7 +1142,24 @@ function animateTurbulence(){
   requestAnimationFrame(animateTurbulence);
 }
 animateTurbulence();
+// клик по тегу на карточке мероприятия
+document.addEventListener("click", function(e){
+  const tag = e.target.closest(".event-tag");
+  if(!tag) return;
 
+  const tagName = tag.dataset.tag;
+  if(!tagName) return;
+
+  // применяем фильтр как в сортировке по тегу
+  const filter = document.getElementById("filterSubject");
+  if(filter){
+    filter.value = tagName;
+  }
+
+  if(typeof refreshList === "function"){
+    refreshList();
+  }
+});
   </script>
   <!-- svg фильтр -->
 <svg width="0" height="0" style="position:absolute">
