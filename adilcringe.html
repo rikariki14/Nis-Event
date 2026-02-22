@@ -5,19 +5,229 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Портал мероприятий — Олимпиады, Хакатоны, Стартапы</title>
   <style>
+    /* ---------- liquid glass---------- */
+
+/* тонкие переменные: можно подправить */
+:root{
+  --lg-blur: 10px;
+  --lg-scale: 10; /* степень искажения */
+  --lg-accent: rgba(101,196,102,0.12); /* тонкий оттенок */
+
+}
+
+/* базовый glass */
+.liquid-glass{
+  position: relative;
+  background: linear-gradient(180deg, rgba(255,255,255,0.56), rgba(255,255,255,0.30));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(120%);
+  backdrop-filter: blur(var(--lg-blur)) saturate(120%);
+  border: 1px solid rgba(255,255,255,0.35);
+  box-shadow: 0 8px 28px rgba(16,24,40,0.06);
+  overflow: hidden; /* чтобы псевдоэлементы не вылезали */
+  border-radius: 12px; /* наследует твои панели */
+  transition: box-shadow .25s ease, transform .15s ease;
+}
+
+/* лёгкое поднятие при наведении */
+.liquid-glass:hover{
+  transform: translateY(-4px);
+  box-shadow: 0 14px 40px rgba(16,24,40,0.09);
+}
+
+/* glossy + мягкие пятна, сюда применён svg-фильтр для "жидкости" */
+.liquid-glass::before{
+  content: "";
+  position: absolute;
+  left: -30%;
+  top: -40%;
+  width: 160%;
+  height: 200%;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+  background:
+    radial-gradient(35% 35% at 10% 12%, rgba(255,255,255,0.38), transparent 15%),
+    radial-gradient(30% 30% at 85% 80%, rgba(255,255,255,0.16), transparent 25%),
+    linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.00) 60%);
+  filter: url(#liquidFilter); /* svg фильтр (см. ниже) */
+  opacity: 0.95;
+  transform-origin: center;
+  transition: opacity .25s ease;
+}
+
+/* тонкая светлая плёнка сверху */
+.liquid-glass::after{
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+  pointer-events: none;
+}
+
+/* подсветка акцентом (можно включать для некоторых панелей) */
+.liquid-glass.accent::after{
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(101,196,102,0.02));
+}
+
+/* fallback для браузеров без backdrop-filter */
+.no-backdrop .liquid-glass{
+  background: rgba(255,255,255,0.85);
+  box-shadow: 0 6px 18px rgba(16,24,40,0.06);
+}
+
+/* уважение к пользователю: убрать анимацию при reduced-motion */
+@media (prefers-reduced-motion: reduce){
+  .liquid-glass{ transition:none; }
+  .liquid-glass::before{ filter:none; animation:none; }
+}
     /* --- Reset & base --- */
-    :root{--accent:#2563eb;--muted:#666}
+    :root{  
+        --accent:#65c466;     /* салатово-зелёный */
+        --muted:#666;
+        --header-line-speed: 0.5s;
+    }
     *{box-sizing:border-box}
     body{font-family:Inter,Segoe UI,Roboto,Arial;margin:0;background:#f5f7fb;color:#111}
-    header{background:linear-gradient(90deg,#ffffffcc, #f0f6ff);padding:18px 24px;border-bottom:1px solid #e6eefc;display:flex;gap:12px;align-items:center}
+    header{
+        background:linear-gradient(90deg,#ffffffcc, #f0f6ff);
+        -webkit-backdrop-filter: blur(8px) saturate(120%); 
+        backdrop-filter: blur(8px) saturate(120%);
+        box-shadow: 0 8px 20px rgba(16,24,40,0.06);
+        border-bottom: 1px solid rgba(230,238,252,0.6);
+        padding:18px 24px;
+        display:flex; gap:12px; align-items:center;
+
+        backdrop-filter: blur(12px) saturate(140%);
+        -webkit-backdrop-filter: blur(12px) saturate(140%);
+    }
+    header::before {
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:0;
+
+  background:
+    radial-gradient(circle at 20% 30%, rgba(255,255,255,0.25), transparent 40%),
+    radial-gradient(circle at 80% 70%, rgba(255,255,255,0.15), transparent 50%),
+    linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0) 60%),
+    linear-gradient(120deg,
+      rgba(255,255,255,0.45) 0%,
+      rgba(255,255,255,0.10) 40%,
+      rgba(255,255,255,0.00) 70%);
+
+  mix-blend-mode: overlay;
+  filter: url(#liquidFilter) blur(8px);
+
+  transform-origin:center;
+  opacity:0.9;
+
+  animation:
+    headerLiquidFlow 12s ease-in-out infinite,
+    headerSheenMove 12s ease-in-out infinite;
+}
+    /* вставь после блока header{...} или добавь внутрь header */
+header{
+  position: relative; /* если ещё нет */
+  overflow: visible;
+}
+
+/* чтобы содержимое header было над псевдоэлементами */
+header > * { position: relative; z-index: 1; }
+
+/* тонкий градиентный бордер внизу */
+header::after{
+  content: "";
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  bottom: 6px;
+  height: 2px;
+  border-radius: 999px;
+
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(101,196,102,1) 40%,
+    white 50%,
+    rgba(101,196,102,1) 60%,
+    transparent 100%);
+
+  background-size: 300% 100%;
+  animation: headerLineFlow 8s linear infinite;
+}
+
+/* мягкая блёстка (sheen) — сверху, двигается при hover */
+
+
+/* лёгкое движение на hover (делай аккуратно — не перегружай) */
+header:hover::before{
+  transform: rotate(-15deg) translateX(22%);
+}
+
+/* уважение к пользователю: отключаем анимации при reduced-motion */
+@media (prefers-reduced-motion: reduce){
+  header::before, header::after { transition: none; transform: none; }
+  header:hover::before { transform: none; }
+}
+/* медленная анимация блеска */
+@keyframes headerSheenMove{
+  0%   { transform: rotate(-15deg) translateX(-10%); opacity:0.75; }
+  50%  { transform: rotate(-15deg) translateX(30%); opacity:0.95; }
+  100% { transform: rotate(-15deg) translateX(-10%); opacity:0.75; }
+}
+@keyframes headerLiquidFlow {
+  0% { transform: translate(-20%, -10%) rotate(0deg); }
+  50% { transform: translate(20%, 10%) rotate(2deg); }
+  100% { transform: translate(-20%, -10%) rotate(0deg); }
+}
+@keyframes headerLineFlow {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
     h1{font-size:18px;margin:0}
     .container{max-width:1100px;margin:18px auto;padding:0 16px}
-
+    
+    .logo {height: 44px;width: auto;}
+    .header-left {display: flex;align-items: center;gap: 12px;}
     /* --- Controls --- */
     .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
     input[type=text],select{padding:8px 10px;border:1px solid #d6e3ff;border-radius:8px;min-width:160px}
     button{background:var(--accent);color:white;border:none;padding:8px 12px;border-radius:8px;cursor:pointer}
     button.ghost{background:transparent;color:var(--accent);border:1px solid #d6e3ff}
+    /* плавное затемнение кнопок при hover + доступность */
+button{
+  transition: filter .18s ease, transform .12s ease, box-shadow .18s ease;
+  will-change: transform, filter;
+}
+
+/* primary button — немного темнеет (надежно и просто) */
+button:hover{
+  filter: brightness(0.88); /* чем меньше значение — тем темнее */
+  transform: translateY(-1px);
+  box-shadow: 0 10px 30px rgba(16,24,40,0.08);
+}
+
+/* ghost button — тонкая подсветка и тёмный бордер при hover */
+button.ghost{
+  transition: background-color .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+button.ghost:hover{
+  background-color: rgba(101,196,102,0.08); /* лёгкий зелёный оттенок */
+  border-color: rgba(101,196,102,0.22);
+  color: var(--accent);
+  box-shadow: 0 6px 18px rgba(16,24,40,0.04);
+}
+
+/* фокус для клавиатурной навигации — важно для доступности */
+button:focus{
+  outline: 3px solid rgba(101,196,102,0.18);
+  outline-offset: 2px;
+}
+
+/* уважение к пользователю: если он предпочитает reduced-motion — отключаем анимации */
+@media (prefers-reduced-motion: reduce){
+  button, button.ghost{ transition: none; transform: none; filter: none; box-shadow: none; }
+}
 
     /* --- Layout --- */
     .grid{display:grid;grid-template-columns:1fr 320px;gap:18px;margin-top:18px}
@@ -54,16 +264,68 @@
 
     /* --- Responsive --- */
     @media (max-width:880px){.grid{grid-template-columns:1fr}.admin-login{order:2}.right{order:3}}
+    /* поля ввода и выбора */
+input,
+select,
+textarea{
+  transition: filter .18s ease, background-color .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+
+/* затемнение при наведении */
+input:hover,
+select:hover,
+textarea:hover{
+  filter: brightness(0.94);
+  border-color: var(--accent);
+}
+
+/* когда нажимаешь или начинаешь писать */
+input:focus,
+select:focus,
+textarea:focus{
+  filter: brightness(0.92);
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(101,196,102,0.15);
+}
+#detailLink{
+  transition: filter .18s ease, transform .12s ease, box-shadow .18s ease;
+}
+
+#detailLink:hover{
+  filter: brightness(0.88);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px rgba(16,24,40,0.08);
+}
   </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute">
+  <filter id="liquidFilter">
+    <feTurbulence 
+      id="turbulence"
+      type="fractalNoise"
+      baseFrequency="0.008 0.015"
+      numOctaves="2"
+      seed="2"
+    />
+    <feDisplacementMap in="SourceGraphic" scale="6"/>
+  </filter>
+</svg>
   <header>
+  <div class="header-left">
+    <img src="./nis.png" alt="NIS" class="logo">
     <h1>Портал мероприятий — Олимпиады, Конкурсы, Хакатоны</h1>
-    <div style="margin-left:12px" class="small">Клиентская и админ части · Поиск · Рекомендации · Запись</div>
-    <div class="admin-login">
-      <button id="adminBtn" class="ghost">Вход админа</button>
-    </div>
-  </header>
+  </div>
+
+  <div style="margin-left:12px" class="small">
+    Клиентская и админ части · Поиск · Рекомендации · Запись
+  </div>
+
+  <div class="admin-login">
+    <button id="adminBtn" class="ghost">Вход админа</button>
+  </div>
+</header>
 
   <main class="container">
     <section class="controls">
@@ -82,7 +344,7 @@
 
     <div class="grid">
       <div>
-        <div class="panel">
+        <div class="panel liquid-glass">
           <div style="display:flex;justify-content:space-between;align-items:center">
             <div>
               <strong id="countLabel">0</strong> мероприятий
@@ -95,7 +357,7 @@
           </div>
         </div>
 
-        <div class="panel" style="margin-top:12px">
+        <div class="panel liquid-glass" style="margin-top:12px">
           <h3 style="margin:0 0 8px 0">Поиск по дате</h3>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <input id="dateFrom" type="date"> <input id="dateTo" type="date">
@@ -105,7 +367,7 @@
       </div>
 
       <aside class="right">
-        <div class="panel">
+        <div class="panel liquid-glass">
           <h3 style="margin:0 0 8px 0">Рекомендации</h3>
           <div>
             <label>Выберите предметную область</label>
@@ -116,7 +378,7 @@
           <div id="recs" style="margin-top:10px"></div>
         </div>
 
-        <div class="panel">
+        <div class="panel liquid-glass">
           <h3 style="margin:0 0 8px 0">Мои записи</h3>
           <div id="myRegs"></div>
         </div>
@@ -127,7 +389,7 @@
   <!-- Admin modal / forms -->
   <div id="modal" style="display:none;position:fixed;inset:0;background:rgba(2,6,23,0.5);align-items:center;justify-content:center;padding:20px;z-index:999">
     <div style="width:100%;max-width:820px">
-      <div class="panel admin-panel" style="position:relative">
+      <div class="panel admin-panel liquid-glass" style="position:relative">
         <button id="closeModal" style="position:absolute;right:12px;top:12px;background:transparent;color:var(--muted);border:none">✕</button>
         <h2 id="modalTitle">Панель администратора</h2>
 
@@ -190,7 +452,7 @@
 
   <!-- Detail modal (показывает полную и подробную информацию об мероприятии) -->
   <div id="detailModal">
-    <div class="panel">
+    <div class="panel liquid-glass">
       <button id="closeDetail" style="position:absolute;right:24px;top:20px;background:transparent;border:none;font-size:20px;color:var(--muted)">✕</button>
       <div id="detailContent"></div>
       <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">
@@ -527,36 +789,98 @@
     $q('csvFile').addEventListener('change', async function(){
       const f = this.files[0]; if(!f) return; const txt = await f.text(); importFromCSV(txt);
     });
-    function importFromCSV(txt){
-      const lines = txt.split(/\r?\n/).filter(Boolean);
-      const headers = lines.shift().split(',').map(h=>h.trim());
-      const arr = lines.map(l=>{
-        const cols = l.split(','); const obj={}; headers.forEach((h,i)=>obj[h]=cols[i]); return obj;
-      });
-      arr.forEach(async row=>{
-        // карта полей: допускаются названия stages (с разделителем ';' или '\n'), locations, ageMin, ageMax, teamMin, teamMax, finance, awards, subcategory
-        const obj = {
-          title:row.title||row.name,
-          desc:row.desc||row.description,
-          tags:(row.tags||'').toString().replace(/;/g,',').split(',').map(s=>s.trim()).filter(Boolean),
-          subcategory:row.subcategory||'',
-          stages: (row.stages||row.stage||'').toString().split(/;|\\n/).map(s=>s.trim()).filter(Boolean),
-          locations:(row.locations||row.location||'').toString().split(/;|\\n/).map(s=>s.trim()).filter(Boolean),
-          ageMin: row.ageMin? Number(row.ageMin): undefined,
-          ageMax: row.ageMax? Number(row.ageMax): undefined,
-          teamMin: row.teamMin? Number(row.teamMin): undefined,
-          teamMax: row.teamMax? Number(row.teamMax): undefined,
-          date:row.date,
-          deadline:row.deadline,
-          finance:row.finance||'',
-          awards:row.awards||'',
-          link:row.link
-        };
-        await addEventObj(obj);
-      });
-      toast('CSV импортирован (проверьте админ-панель)');
-      rebuildRegsCache().then(refreshList);
+    function parseCSV(text){
+  // простой state-machine парсер CSV, понимает кавычки и запятые внутри них
+  const rows = [];
+  let cur = '';
+  let row = [];
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++){
+    const ch = text[i];
+    const nxt = text[i+1];
+    if (ch === '"') {
+      // двойные двойные кавычки внутри поля -> экранирование
+      if (inQuotes && nxt === '"') { cur += '"'; i++; continue; }
+      inQuotes = !inQuotes;
+      continue;
     }
+    if (ch === ',' && !inQuotes) {
+      row.push(cur);
+      cur = '';
+      continue;
+    }
+    if ((ch === '\n' || (ch === '\r' && nxt === '\n')) && !inQuotes) {
+      if (ch === '\r' && nxt === '\n') i++;
+      row.push(cur);
+      rows.push(row);
+      row = [];
+      cur = '';
+      continue;
+    }
+    cur += ch;
+  }
+  // остаток
+  if (cur !== '' || row.length) {
+    row.push(cur);
+    rows.push(row);
+  }
+  // очистка: обрезаем пробелы и убираем обрамляющие кавычки
+  return rows.map(r => r.map(cell => {
+    if (cell == null) return '';
+    let s = cell.toString().trim();
+    if (s.startsWith('"') && s.endsWith('"')) s = s.slice(1, -1);
+    return s;
+  }));
+}
+
+async function importFromCSV(txt){
+  try{
+    if(!txt || !txt.trim()) { toast('файл пустой'); return; }
+    const parsed = parseCSV(txt);
+    if(parsed.length < 1){ toast('не удалось распарсить csv'); return; }
+
+    // первая строка — заголовки
+    const headers = parsed[0].map(h=> (h||'').trim() );
+    const dataRows = parsed.slice(1).filter(r => r.join('').trim().length > 0);
+
+    if(dataRows.length === 0){ toast('нет строк с данными в csv'); return; }
+
+    // создаём объекты
+    for(const cols of dataRows){
+      const rowObj = {};
+      headers.forEach((h, i) => { rowObj[h] = (cols[i] ?? '').trim(); });
+
+      const obj = {
+        title: rowObj.title || rowObj.name || '',
+        desc: rowObj.desc || rowObj.description || '',
+        tags: (rowObj.tags || '').toString().replace(/;/g,',').split(',').map(s=>s.trim()).filter(Boolean),
+        subcategory: rowObj.subcategory || '',
+        stages: (rowObj.stages || rowObj.stage || '').toString().split(/;|\n/).map(s=>s.trim()).filter(Boolean),
+        locations: (rowObj.locations || rowObj.location || '').toString().split(/;|\n/).map(s=>s.trim()).filter(Boolean),
+        ageMin: rowObj.ageMin ? Number(rowObj.ageMin) : undefined,
+        ageMax: rowObj.ageMax ? Number(rowObj.ageMax) : undefined,
+        teamMin: rowObj.teamMin ? Number(rowObj.teamMin) : undefined,
+        teamMax: rowObj.teamMax ? Number(rowObj.teamMax) : undefined,
+        date: rowObj.date || '',
+        deadline: rowObj.deadline || '',
+        finance: rowObj.finance || '',
+        awards: rowObj.awards || '',
+        link: rowObj.link || ''
+      };
+
+      // минимальная валидация, чтобы не добавлять пустые события
+      if(!obj.title && !obj.desc) continue;
+      await addEventObj(obj);
+    }
+
+    toast('csv импортирован (проверьте админ-панель)');
+    await rebuildRegsCache();
+    await refreshList();
+  }catch(err){
+    console.error('importFromCSV error', err);
+    alert('ошибка при импорте csv: ' + (err && err.message ? err.message : 'unknown'));
+  }
+}
 
     $q('btnImportJson').addEventListener('click', ()=>{
       try{
@@ -714,7 +1038,46 @@
     $q('sortBy').addEventListener('change', ()=>refreshList());
     $q('btnFilterDate').addEventListener('click', ()=>refreshList());
     $q('btnClear').addEventListener('click', ()=>{ $q('search').value=''; $q('filterSubject').value=''; $q('dateFrom').value=''; $q('dateTo').value=''; refreshList(); });
+const turb = document.getElementById("turbulence");
+
+let t = 0;
+function animateTurbulence(){
+  t += 0.0005;
+  const x = 0.008 + Math.sin(t) * 0.002;
+  const y = 0.015 + Math.cos(t) * 0.002;
+  turb.setAttribute("baseFrequency", `${x} ${y}`);
+  requestAnimationFrame(animateTurbulence);
+}
+animateTurbulence();
 
   </script>
+  <!-- svg фильтр -->
+<svg width="0" height="0" style="position:absolute">
+  <filter id="liquidFilter" x="-20%" y="-20%" width="140%" height="140%">
+    <!-- шум/текстура -->
+    <feTurbulence id="turbulence" baseFrequency="0.01 0.02" numOctaves="3" seed="3" type="fractalNoise"/>
+    <!-- слегка искажает "передний план" с помощью шума -->
+    <feDisplacementMap in="SourceGraphic" scale="10" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+</svg>
+
+<script>
+  // простой аниматор для baseFrequency (легкое "волнение")
+  (function(){
+    if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const turb = document.getElementById('turbulence');
+    if(!turb) return;
+    let t = 0;
+    function frame(){
+      t += 0.008;
+      const f1 = 0.008 + Math.sin(t)*0.0025; // варьируем по синусу
+      const f2 = 0.018 + Math.cos(t*0.7)*0.0033;
+      // устанавливаем чуть разные частоты по x/y
+      turb.setAttribute('baseFrequency', f1.toFixed(5) + ' ' + f2.toFixed(5));
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  })();
+</script>
 </body>
 </html>
